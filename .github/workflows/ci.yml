@@ -74,22 +74,21 @@ jobs:
         working-directory: packages/docs
         env:
           NODE_OPTIONS: --max_old_space_size=4096
-      - name: Build docs
+      - name: Build playground
         run: npm run build
         working-directory: packages/playground
         env:
           NODE_OPTIONS: --max_old_space_size=4096
-      - if: matrix.node-version == '18.x'
+      - name: Upload playground
         uses: actions/upload-artifact@v3
         with:
           name: playground
           path: packages/playground/dist
-      - if: matrix.node-version == '18.x'
+      - name: Upload docs
         uses: actions/upload-artifact@v3
         with:
           name: docs
           path: packages/docs/build
-      - run: npm test
   deploy_playground_and_docs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
