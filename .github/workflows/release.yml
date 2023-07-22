@@ -9,20 +9,20 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
+      - name: Install pnpm
+        uses: pnpm/action-setup@v2
       - name: Use Node.js 18.x
         uses: actions/setup-node@v3
         with:
           node-version: 18.x
-          cache: 'npm'
-          cache-dependency-path: 'package-lock.json'
-      - run: npm i -g npm@9
-      - run: npm ci
-      - run: npm run build
+          cache: 'pnpm'
+      - run: pnpm install
+      - run: pnpm run build
         env:
           NODE_OPTIONS: --max_old_space_size=4096
-      - run: npm test
-      - run: npm run lint
-      - run: npm run cs-check
+      - run: pnpm test
+      - run: pnpm run lint
+      - run: pnpm run cs-check
       - run: echo //registry.npmjs.org/:_authToken=${NPM_TOKEN} > .npmrc
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
