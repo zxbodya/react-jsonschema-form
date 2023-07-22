@@ -7,11 +7,35 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  build-publishable:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+      - run: npm i -g npm@9
+      - run: npm ci
+
+      - name: Build the publishable packages
+        run: npx nx run-many --target=build --exclude=docs,@rjsf/playground
+        env:
+          NODE_OPTIONS: --max_old_space_size=4096
+
+      - name: Upload build results
+        uses: actions/upload-artifact@v3
+        with:
+          name: publishable-build-results
+          path: packages/*/dist
+  tests:
+    runs-on: ubuntu-latest
+    needs: [build-publishable]
     strategy:
       matrix:
-        node-version: [14.x, 16.x, 18.x]
+        node-version: [ 14.x, 16.x, 18.x ]
 
     steps:
       - uses: actions/checkout@v3
@@ -25,33 +49,36 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run cs-check
+      - name: Download build results
+        uses: actions/download-artifact@v3
+        with:
+          name: publishable-build-results
+          path: packages
+      - run: npm test
+  build-docs:
+    runs-on: ubuntu-latest
+    needs: [ tests ]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js 18.x
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.x
+          cache: 'npm'
+          cache-dependency-path: 'package-lock.json'
+      - run: npm i -g npm@9
+      - run: npm ci
 
-      - name: Build with Netlify badge
-        if: github.ref != 'refs/heads/main' && matrix.node-version != '14.x'
+      - name: Build docs
         run: npm run build
+        working-directory: packages/docs
         env:
-          VITE_SHOW_NETLIFY_BADGE: true
           NODE_OPTIONS: --max_old_space_size=4096
-
-      - name: Build
-        if: github.ref == 'refs/heads/main' && matrix.node-version != '14.x'
+      - name: Build docs
         run: npm run build
+        working-directory: packages/playground
         env:
           NODE_OPTIONS: --max_old_space_size=4096
-
-      # Docusaurus doesn't support Node 14. These tasks can be removed once Node 14 is EOL (May 2023)
-      - name: Build with Netlify badge (no docs)
-        if: github.ref != 'refs/heads/main' && matrix.node-version == '14.x'
-        run: npx nx run-many --target=build --exclude=docs
-        env:
-          VITE_SHOW_NETLIFY_BADGE: true
-          NODE_OPTIONS: --max_old_space_size=4096
-      - name: Build (no docs)
-        if: github.ref == 'refs/heads/main' && matrix.node-version == '14.x'
-        run: npx nx run-many --target=build --exclude=docs
-        env:
-          NODE_OPTIONS: --max_old_space_size=4096
-
       - if: matrix.node-version == '18.x'
         uses: actions/upload-artifact@v3
         with:
@@ -67,7 +94,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main'
     name: Deploy playground and docs to GitHub Pages
-    needs: [build]
+    needs: [build-docs]
     steps:
       - name: Download built playground
         uses: actions/download-artifact@v3
